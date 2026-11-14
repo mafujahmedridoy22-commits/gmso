@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from gmso.core.atom import Atom
 from gmso.core.atom_type import AtomType
+from gmso.core.box import Box
 from gmso.core.dihedral import Dihedral
 from gmso.core.dihedral_type import DihedralType
 from gmso.core.topology import Topology
@@ -155,3 +156,20 @@ class TestDihedral(BaseTest):
         )
         assert sort_by_classes(dihtype) == expected_sortingList
         assert sort_by_types(dihtype) == expected_sortingList
+
+    def test_dihedral_measure(self):
+        atom1 = Atom(name="atom1", position=[1, 0, 0])
+        atom2 = Atom(name="atom2", position=[0, 0, 0])
+        atom3 = Atom(name="atom3", position=[0, 1, 0])
+        atom4 = Atom(name="atom4", position=[1, 1, 0])
+        dihedral = Dihedral(connection_members=[atom1, atom2, atom3, atom4])
+        assert dihedral.measure().to("degree").value == pytest.approx(0.0)
+
+    def test_dihedral_measure_minimum_image(self):
+        box = Box(lengths=[10, 10, 10])
+        atom1 = Atom(name="atom1", position=[9, 0, 0])
+        atom2 = Atom(name="atom2", position=[0, 0, 0])
+        atom3 = Atom(name="atom3", position=[0, 9, 0])
+        atom4 = Atom(name="atom4", position=[9, 9, 0])
+        dihedral = Dihedral(connection_members=[atom1, atom2, atom3, atom4])
+        assert dihedral.measure(box=box).to("degree").value == pytest.approx(0.0)

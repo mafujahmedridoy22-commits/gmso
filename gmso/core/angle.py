@@ -3,12 +3,14 @@
 from collections.abc import Callable
 from typing import ClassVar
 
+import numpy as np
+import unyt as u
 from pydantic import ConfigDict, Field, model_validator
 
 from gmso.abc.abstract_connection import Connection
 from gmso.core.angle_type import AngleType
 from gmso.core.atom import Atom
-from gmso.core.bond import Bond
+from gmso.core.bond import Bond, _apply_minimum_image
 
 
 class Angle(Connection):
@@ -97,6 +99,30 @@ class Angle(Connection):
     def bonds_orders(self):
         """Return the bond_order strings of this angle."""
         return "".join([str(b.bond_order) for b in self.bonds])
+
+    def measure(self, box=None):
+        """Measure the angle, in degrees, centered at the middle member.
+
+        Parameters
+        ----------
+        box : gmso.Box, optional
+            The periodic box used to apply the minimum image convention to each
+            pair of atoms. If ``None``, the raw Cartesian geometry is used.
+
+        Returns
+        -------
+        unyt_quantity
+            The angle, in degrees.
+        """
+        r = [
+            np.asarray(member.position, dtype=float)
+            for member in self.connection_members
+        ]
+        v1 = _apply_minimum_image(r[0] - r[1], box)
+        v2 = _apply_minimum_image(r[2] - r[1], box)
+        cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+        cos_theta = np.clip(cos_theta, -1.0, 1.0)
+        return u.degree * np.degrees(np.arccos(cos_theta))
 
     def equivalent_members(self):
         """Return a set of the equivalent connection member tuples.

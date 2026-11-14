@@ -3,11 +3,39 @@
 from collections.abc import Callable
 from typing import ClassVar
 
+import numpy as np
+import unyt as u
 from pydantic import ConfigDict, Field
 
 from gmso.abc.abstract_connection import Connection
 from gmso.core.atom import Atom
 from gmso.core.bond_type import BondType
+
+
+def _apply_minimum_image(deltas, box):
+    """Apply the minimum image convention to displacement vectors.
+
+    Parameters
+    ----------
+    deltas : numpy.ndarray
+        Displacement vectors, shape (3,) for a single vector or (N, 3) for
+        several vectors, in nm.
+    box : gmso.Box or None
+        The periodic box used to wrap the vectors. When ``None``, the
+        displacements are returned unchanged.
+
+    Returns
+    -------
+    numpy.ndarray
+        The wrapped displacement vectors (same shape as ``deltas``).
+    """
+    if box is None:
+        return deltas
+    vectors = np.asarray(box.get_vectors(), dtype=float)
+    deltas = np.asarray(deltas, dtype=float)
+    fractional = np.linalg.solve(vectors.T, deltas.T).T
+    fractional -= np.round(fractional)
+    return fractional @ vectors
 
 
 class Bond(Connection):
@@ -89,6 +117,25 @@ class Bond(Connection):
     def bond_order(self, order):
         """Set the bond_order of this bond."""
         self._bond_order = order
+
+    def measure(self, box=None):
+        """Measure the length of this bond.
+
+        Parameters
+        ----------
+        box : gmso.Box, optional
+            The periodic box used to apply the minimum image convention. If
+            ``None``, the raw Cartesian distance is returned.
+
+        Returns
+        -------
+        unyt_quantity
+            The length of the bond, in nm.
+        """
+        r0 = np.asarray(self.connection_members[0].position, dtype=float)
+        r1 = np.asarray(self.connection_members[1].position, dtype=float)
+        delta = _apply_minimum_image(r1 - r0, box)
+        return u.nm * np.linalg.norm(delta)
 
     def equivalent_members(self):
         """Get a set of the equivalent connection member tuples.

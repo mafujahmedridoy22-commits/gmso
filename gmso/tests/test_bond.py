@@ -5,6 +5,7 @@ from gmso.core.atom import Atom
 from gmso.core.atom_type import AtomType
 from gmso.core.bond import Bond
 from gmso.core.bond_type import BondType
+from gmso.core.box import Box
 from gmso.core.topology import Topology
 from gmso.tests.base_test import BaseTest
 
@@ -123,3 +124,16 @@ class TestBond(BaseTest):
         bond = Bond(connection_members=[atom1, atom2], bond_type=btype)
         assert set(bond.member_classes) == {"XE"}
         assert set(bond.member_types) == {"at1", "at2"}
+
+    def test_bond_measure(self):
+        atom1 = Atom(name="atom1", position=[0, 0, 0])
+        atom2 = Atom(name="atom2", position=[3, 4, 0])
+        bond = Bond(connection_members=[atom1, atom2])
+        assert bond.measure().to("nm").value == pytest.approx(5.0)
+
+    def test_bond_measure_minimum_image(self):
+        box = Box(lengths=[10, 10, 10])
+        atom1 = Atom(name="atom1", position=[0, 0, 0])
+        atom2 = Atom(name="atom2", position=[9, 0, 0])
+        bond = Bond(connection_members=[atom1, atom2])
+        assert bond.measure(box=box).to("nm").value == pytest.approx(1.0)

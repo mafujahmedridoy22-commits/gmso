@@ -5,6 +5,7 @@ from gmso.core.angle import Angle
 from gmso.core.angle_type import AngleType
 from gmso.core.atom import Atom
 from gmso.core.atom_type import AtomType
+from gmso.core.box import Box
 from gmso.core.topology import Topology
 from gmso.tests.base_test import BaseTest
 
@@ -114,3 +115,18 @@ class TestAngle(BaseTest):
         assert tuple(angle_eq.connection_members) in angle.equivalent_members()
         assert tuple(angle.connection_members) in angle_eq.equivalent_members()
         assert tuple(angle.connection_members) not in angle_not_eq.equivalent_members()
+
+    def test_angle_measure(self):
+        atom1 = Atom(name="atom1", position=[1, 0, 0])
+        atom2 = Atom(name="atom2", position=[0, 0, 0])
+        atom3 = Atom(name="atom3", position=[0, 1, 0])
+        angle = Angle(connection_members=[atom1, atom2, atom3])
+        assert angle.measure().to("degree").value == pytest.approx(90.0)
+
+    def test_angle_measure_minimum_image(self):
+        box = Box(lengths=[10, 10, 10])
+        atom1 = Atom(name="atom1", position=[9, 0, 0])
+        atom2 = Atom(name="atom2", position=[0, 0, 0])
+        atom3 = Atom(name="atom3", position=[0, 9, 0])
+        angle = Angle(connection_members=[atom1, atom2, atom3])
+        assert angle.measure(box=box).to("degree").value == pytest.approx(90.0)

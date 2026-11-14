@@ -1,11 +1,13 @@
 from collections.abc import Callable
 from typing import ClassVar
 
+import numpy as np
+import unyt as u
 from pydantic import ConfigDict, Field, model_validator
 
 from gmso.abc.abstract_connection import Connection
 from gmso.core.atom import Atom
-from gmso.core.bond import Bond
+from gmso.core.bond import Bond, _apply_minimum_image
 from gmso.core.dihedral_type import DihedralType
 
 
@@ -99,6 +101,36 @@ class Dihedral(Connection):
     def bonds_orders(self):
         """Return the bond_order strings of this dihedral."""
         return "".join([b.bond_order for b in self.bonds])
+
+    def measure(self, box=None):
+        """Measure the dihedral (torsion) angle, in degrees.
+
+        The torsion angle is defined by the planes spanned by atoms
+        ``0-1-2`` and ``1-2-3``.
+
+        Parameters
+        ----------
+        box : gmso.Box, optional
+            The periodic box used to apply the minimum image convention to each
+            pair of atoms. If ``None``, the raw Cartesian geometry is used.
+
+        Returns
+        -------
+        unyt_quantity
+            The dihedral angle, in degrees.
+        """
+        r = [
+            np.asarray(member.position, dtype=float)
+            for member in self.connection_members
+        ]
+        b1 = _apply_minimum_image(r[1] - r[0], box)
+        b2 = _apply_minimum_image(r[2] - r[1], box)
+        b3 = _apply_minimum_image(r[3] - r[2], box)
+        n1 = np.cross(b1, b2)
+        n2 = np.cross(b2, b3)
+        m1 = np.cross(n1, b2 / np.linalg.norm(b2))
+        phi = np.arctan2(np.dot(m1, n2), np.dot(n1, n2))
+        return u.degree * np.degrees(phi)
 
     def equivalent_members(self):
         """Get a set of the equivalent connection member tuples
